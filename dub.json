@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"Seth Stadick"
+	],
+	"copyright": "Copyright © 2020, Seth Stadick",
+	"description": "A D clone of the cgranges algorithm.",
+	"license": "MIT",
+	"name": "dgranges"
+}
