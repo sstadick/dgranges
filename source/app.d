@@ -101,6 +101,13 @@ class IITree(SType, DType) {
 	}
 }
 
+pragma(inline, true);
+ref auto next(T)(ref T iter) {
+	auto tmp = iter.front;
+	iter.popFront;
+	return tmp;
+}
+
 void main(string[] args) {
 	string fileA, fileB;
 	auto helpInfo = getopt(args, config.required, "fileA|a", &fileA,
@@ -115,12 +122,9 @@ void main(string[] args) {
 	auto inFile = File(fileA);
 	foreach (line; inFile.byLine()) {
 		auto iter = line.splitter('\t');
-		auto chr = iter.front;
-		iter.popFront;
-		auto start = iter.front;
-		iter.popFront;
-		auto stop = iter.front;
-		iter.popFront;
+		auto chr = iter.next;
+		auto start = iter.next;
+		auto stop = iter.next;
 		if (!(chr in bed)) {
 			bed[chr.to!string] = new Itree();
 		}
@@ -134,12 +138,9 @@ void main(string[] args) {
 	inFile = File(fileB);
 	foreach (line; inFile.byLine()) {
 		auto iter = line.splitter('\t');
-		auto chr = iter.front;
-		iter.popFront;
-		auto start = iter.front;
-		iter.popFront;
-		auto stop = iter.front;
-		iter.popFront;
+		auto chr = iter.next;
+		auto start = iter.next;
+		auto stop = iter.next;
 		if (!(chr in bed)) {
 			writeln(chr, "\t", start, "\t", stop, "\t0\t0");
 		} else {
