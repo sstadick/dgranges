@@ -5,5 +5,28 @@
 	"copyright": "Copyright © 2020, Seth Stadick",
 	"description": "A D clone of the cgranges algorithm.",
 	"license": "MIT",
-	"name": "dgranges"
+	"name": "dgranges",
+	"targetType": "executable",
+	"buildTypes": {
+		"release": {
+			"buildOptions": [
+				"releaseMode",
+				"inline",
+				"optimize"
+			],
+			"dflags": [
+				"-boundscheck=off"
+			],
+			"dflags-ldc": ["-mcpu=native"]
+		},
+		"tests": {
+            "buildOptions": ["unittests"]
+		},
+		"debug": {
+            "buildOptions": ["debugMode", "debugInfo", "optimize"]
+        },
+        "debug-profile": {
+            "buildOptions": ["debugMode", "debugInfo", "profile"]
+        }
+	}
 }
