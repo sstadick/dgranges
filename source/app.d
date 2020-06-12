@@ -142,7 +142,9 @@ void main(string[] args) {
 		auto start = iter.next;
 		auto stop = iter.next;
 		if (!(chr in bed)) {
-			writeln(chr, "\t", start, "\t", stop, "\t0\t0");
+			core.stdc.stdio.printf("%.*s\t%.*s\t%.*s\t0\t0\n",
+					cast(int) chr.length, chr.ptr, cast(int) start.length,
+					start.ptr, cast(int) stop.length, stop.ptr);
 		} else {
 			auto st0 = start.to!int;
 			auto en0 = stop.to!int;
@@ -166,7 +168,8 @@ void main(string[] args) {
 
 			bed[chr].overlap(st0, en0, &callback);
 			cov += cov_en - cov_st;
-			writeln(chr, "\t", start, "\t", stop, "\t", n, "\t", cov);
+			core.stdc.stdio.printf("%.*s\t%d\t%d\t%d\t%d\n",
+					cast(int) chr.length, chr.ptr, st0, en0, n, cov);
 		}
 
 	}

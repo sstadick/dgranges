@@ -17,7 +17,7 @@
 			"dflags": [
 				"-boundscheck=off"
 			],
-			"dflags-ldc": ["-mcpu=native"]
+			"dflags-ldc": ["-mcpu=native", "-flto=full"]
 		},
 		"tests": {
             "buildOptions": ["unittests"]
