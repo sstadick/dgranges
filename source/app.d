@@ -1,6 +1,9 @@
+module source.app;
+
 import std.getopt;
 import std.array : appender;
 import std.stdio;
+import std.math : pow;
 import std.algorithm : splitter, sort;
 import std.range : take;
 import std.typecons;
@@ -24,20 +27,149 @@ class IITree(SType, DType) {
 		}
 	}
 
+	void insertion_sort(ref Interval[] ivs) {
+		for (auto i = 1; i < ivs.length; i++) {
+			immutable auto key = ivs[i];
+			auto j = i - 1;
+			while (j >= 0 && key.start < ivs[j].start) {
+				ivs[j + 1] = ivs[j];
+				j--;
+			}
+			ivs[j + 1] = key;
+		}
+	}
+
+	void radix_sort(ref Interval[] ivs) {
+		if (ivs.length < 64 || SType.sizeof < 2) {
+			insertion_sort(ivs);
+		} else {
+			rs_sort(ivs);
+		}
+	}
+
+	// Get the ith radix of a. Radix is the number of bits to look at at once
+	static auto digit(SType a, size_t i) {
+		immutable auto radix = 8;
+		return ((a >> (SType.sizeof * 8 - (i + 1) * radix)) & ((1 << radix) - 1));
+	}
+
+	static void exchange(ref Interval a, ref Interval b) {
+		Interval tmp;
+		tmp = a;
+		a = b;
+		b = tmp;
+	}
+
+	static void quicksortX(ref Interval[] ivs, size_t low, size_t high, size_t d) {
+		writefln("Entering quicksort: %s, %s, %s", low, high, d);
+		// if (high - low <= 64) {
+		// 	insertion(ivs);
+		// 	return;
+		// }
+		auto v = digit(ivs[high].start, d);
+		auto i = low - 1;
+		auto j = high;
+		auto p = low - 1;
+		auto q = high;
+
+		while (i < j) {
+			while (digit(ivs[++i].start, d) < v) {
+			}
+			while (v < digit(ivs[--j].start, d)) {
+				if (j == 1)
+					break;
+			}
+			if (i > j)
+				break;
+			exchange(ivs[i], ivs[j]);
+			if (digit(ivs[i].start, d) == v) {
+				p++;
+				exchange(ivs[p], ivs[i]);
+			}
+			if (v == digit(ivs[j].start, d)) {
+				q++;
+				exchange(ivs[j], ivs[q]);
+			}
+		}
+		if (p == q) {
+			// might be missing an exit point here
+			quicksortX(ivs, low, high, d + 1);
+			return;
+		}
+		writefln("p=%s", p);
+		for (auto k = low; k <= p; k++, j--) {
+			writefln("Swapping %s and %s", k, j);
+			exchange(ivs[k], ivs[j]);
+		}
+		for (auto k = high; k >= q; k--, i++)
+			exchange(ivs[k], ivs[i]);
+		quicksortX(ivs, low, j, d);
+		if ((i == high) && (digit(ivs[i].start, d) == v))
+			i++;
+		// might be missing exit here
+		quicksortX(ivs, j + 1, i - 1, d + 1);
+		quicksortX(ivs, i, high, d);
+	}
+
+	static void rs_sort(ref Interval[] ivs) {
+		auto count = 0;
+		immutable auto R = 8; // sort 16 bits at a time, so assume we are more than 16 bit keys
+		immutable auto K = 1 << R; //pow(2, R);
+		immutable auto WORDSIZE = SType.sizeof * 8;
+
+		size_t[K] buckets; //= new size_t[K];
+		size_t[K] positions; // = new size_t[K];
+		while (count < (SType.sizeof * 8) / R) {
+			// zero out buckets
+			for (auto i = 0; i < K; i++) {
+				buckets[i] = 0;
+				positions[i] = 0;
+			}
+
+			// Find how many items's keys are in each bucket
+			foreach (iv; ivs) {
+				buckets[((iv.start >> (WORDSIZE - ((count) + 1) * R)) & (K - 1))] += 1;
+			}
+
+			// Find the number of elements less than or equal to i at each position
+			for (auto i = 1; i < K; i++) {
+				buckets[i] += buckets[i - 1];
+			}
+			// Copy buckets into positions so that buckets can be modified
+			positions[0 .. $] = buckets[0 .. $];
+			auto i = 0;
+			while (i < ivs.length) {
+				// Looking to place item
+				auto key = ((ivs[i].start >> (WORDSIZE - ((count) + 1) * R)) & (K - 1));
+				bool placed = (key == 0 || (positions[key - 1] <= i && i < positions[key]));
+				if (placed) {
+					i += 1;
+				} else {
+					auto tmp = ivs[i];
+					ivs[i] = ivs[buckets[key] - 1];
+					ivs[buckets[key] - 1] = tmp;
+					buckets[key] -= 1;
+				}
+			}
+			count += 1;
+		}
+
+	}
+
 	struct Interval {
 		SType start;
 		SType stop;
 		SType max;
 		DType data;
-
 		static bool lessThan(const Interval self, const Interval other) {
 			return self.start < other.start;
 		}
 	}
 
 	void index() {
-		alias lessThan = (x, y) => x.start < y.start;
-		this.ivs.sort!(Interval.lessThan);
+		// alias lessThan = (x, y) => x.start < y.start;
+		// this.ivs.sort!(Interval.lessThan);
+		this.rs_sort(ivs);
 		auto last = 0; // last is the max value at node last_i
 		auto last_i = 1; // last_i points to the rightmost node in the tree
 		for (auto i = 0; i < this.ivs.length; i += 2) {
@@ -118,7 +250,6 @@ void main(string[] args) {
 	alias Itree = IITree!(int, bool);
 	alias Iv = Itree.Interval;
 	Itree[string] bed;
-
 	auto inFile = File(fileA);
 	foreach (line; inFile.byLine()) {
 		auto iter = line.splitter('\t');
@@ -134,7 +265,6 @@ void main(string[] args) {
 	// Index the trees
 	foreach (tree; bed.values)
 		tree.index;
-
 	inFile = File(fileB);
 	foreach (line; inFile.byLine()) {
 		auto iter = line.splitter('\t');
@@ -189,6 +319,26 @@ unittest {
 	assert(tree.ivs == [
 			Iv(0, 4, 4, true), Iv(3, 10, 10, true), Iv(5, 8, 8, true)
 			]);
+	writeln("Passed");
+}
+
+unittest {
+	write("Testing radix sort: ");
+	alias Itree = IITree!(int, bool);
+	alias Iv = Itree.Interval;
+	Iv[] ivs = [Iv(5, 8, 0, true), Iv(0, 4, 0, true), Iv(3, 10, 0, true)];
+	Itree.rs_sort(ivs);
+	assert(ivs == [Iv(0, 4, 0, true), Iv(3, 10, 0, true), Iv(5, 8, 0, true)]);
+	writeln("Passed");
+}
+
+unittest {
+	write("Testing radix sort: ");
+	alias Itree = IITree!(int, bool);
+	alias Iv = Itree.Interval;
+	Iv[] ivs = [Iv(5, 8, 0, true), Iv(0, 4, 0, true), Iv(3, 10, 0, true)];
+	Itree.quicksortX(ivs, 0, ivs.length - 1, 0);
+	assert(ivs == [Iv(0, 4, 0, true), Iv(3, 10, 0, true), Iv(5, 8, 0, true)]);
 	writeln("Passed");
 }
 
