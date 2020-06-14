@@ -27,7 +27,8 @@ class IITree(SType, DType) {
 		}
 	}
 
-	void insertion_sort(ref Interval[] ivs) {
+	// TODO: Skip the bits that have alraedy been sorted
+	static void insertion_sort(ref Interval[] ivs) {
 		for (auto i = 1; i < ivs.length; i++) {
 			immutable auto key = ivs[i];
 			auto j = i - 1;
@@ -49,7 +50,7 @@ class IITree(SType, DType) {
 
 	// Get the ith radix of a. Radix is the number of bits to look at at once
 	static auto digit(SType a, size_t i) {
-		immutable auto radix = 8;
+		immutable auto radix = 16;
 		return ((a >> (SType.sizeof * 8 - (i + 1) * radix)) & ((1 << radix) - 1));
 	}
 
@@ -60,12 +61,14 @@ class IITree(SType, DType) {
 		b = tmp;
 	}
 
-	static void quicksortX(ref Interval[] ivs, size_t low, size_t high, size_t d) {
-		writefln("Entering quicksort: %s, %s, %s", low, high, d);
-		// if (high - low <= 64) {
-		// 	insertion(ivs);
-		// 	return;
-		// }
+	static void quicksortX(ref Interval[] ivs, int low, int high, size_t d) {
+		if (high - low <= 64) {
+			insertion_sort(ivs);
+			return;
+		}
+		if ((high - low) <= 0) {
+			return;
+		}
 		auto v = digit(ivs[high].start, d);
 		auto i = low - 1;
 		auto j = high;
@@ -74,21 +77,21 @@ class IITree(SType, DType) {
 
 		while (i < j) {
 			while (digit(ivs[++i].start, d) < v) {
+				if (i == high)
+					break;
 			}
 			while (v < digit(ivs[--j].start, d)) {
-				if (j == 1)
+				if (j == low)
 					break;
 			}
 			if (i > j)
 				break;
 			exchange(ivs[i], ivs[j]);
 			if (digit(ivs[i].start, d) == v) {
-				p++;
-				exchange(ivs[p], ivs[i]);
+				exchange(ivs[++p], ivs[i]);
 			}
 			if (v == digit(ivs[j].start, d)) {
-				q++;
-				exchange(ivs[j], ivs[q]);
+				exchange(ivs[j], ivs[--q]);
 			}
 		}
 		if (p == q) {
@@ -96,13 +99,13 @@ class IITree(SType, DType) {
 			quicksortX(ivs, low, high, d + 1);
 			return;
 		}
-		writefln("p=%s", p);
-		for (auto k = low; k <= p; k++, j--) {
-			writefln("Swapping %s and %s", k, j);
-			exchange(ivs[k], ivs[j]);
+		if (digit(ivs[i].start, d) < v)
+			i++;
+		for (auto k = low; k <= p; k++) {
+			exchange(ivs[k], ivs[j--]);
 		}
-		for (auto k = high; k >= q; k--, i++)
-			exchange(ivs[k], ivs[i]);
+		for (auto k = high; k >= q; k--)
+			exchange(ivs[k], ivs[i++]);
 		quicksortX(ivs, low, j, d);
 		if ((i == high) && (digit(ivs[i].start, d) == v))
 			i++;
@@ -169,7 +172,8 @@ class IITree(SType, DType) {
 	void index() {
 		// alias lessThan = (x, y) => x.start < y.start;
 		// this.ivs.sort!(Interval.lessThan);
-		this.rs_sort(ivs);
+		// this.rs_sort(ivs);
+		this.quicksortX(ivs, 0, cast(int) ivs.length - 1, 0);
 		auto last = 0; // last is the max value at node last_i
 		auto last_i = 1; // last_i points to the rightmost node in the tree
 		for (auto i = 0; i < this.ivs.length; i += 2) {
@@ -337,7 +341,7 @@ unittest {
 	alias Itree = IITree!(int, bool);
 	alias Iv = Itree.Interval;
 	Iv[] ivs = [Iv(5, 8, 0, true), Iv(0, 4, 0, true), Iv(3, 10, 0, true)];
-	Itree.quicksortX(ivs, 0, ivs.length - 1, 0);
+	Itree.quicksortX(ivs, 0, cast(int) ivs.length - 1, 0);
 	assert(ivs == [Iv(0, 4, 0, true), Iv(3, 10, 0, true), Iv(5, 8, 0, true)]);
 	writeln("Passed");
 }
