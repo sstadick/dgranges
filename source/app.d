@@ -27,136 +27,77 @@ class IITree(SType, DType) {
 		}
 	}
 
-	// TODO: Skip the bits that have alraedy been sorted
-	static void insertion_sort(ref Interval[] ivs) {
-		for (auto i = 1; i < ivs.length; i++) {
-			immutable auto key = ivs[i];
-			auto j = i - 1;
-			while (j >= 0 && key.start < ivs[j].start) {
-				ivs[j + 1] = ivs[j];
+	static void insertion_sort(ref Interval[] a, int left, int right) {
+		for (auto i = left + 1; i <= right; i++) {
+			compexch(a[left], a[i]);
+		}
+		for (auto i = left + 2; i <= right; i++) {
+			auto j = i;
+			auto v = a[i];
+			while (less(v, a[j - 1])) {
+				a[j] = a[j - 1];
 				j--;
 			}
-			ivs[j + 1] = key;
+			a[j] = v;
 		}
 	}
 
-	void radix_sort(ref Interval[] ivs) {
-		if (ivs.length < 64 || SType.sizeof < 2) {
-			insertion_sort(ivs);
-		} else {
-			rs_sort(ivs);
-		}
-	}
-
-	// Get the ith radix of a. Radix is the number of bits to look at at once
-	static auto digit(SType a, size_t i) {
-		immutable auto radix = 16;
-		return ((a >> (SType.sizeof * 8 - (i + 1) * radix)) & ((1 << radix) - 1));
-	}
-
-	static void exchange(ref Interval a, ref Interval b) {
-		Interval tmp;
-		tmp = a;
+	static void exch(ref Interval a, ref Interval b) {
+		Interval tmp = a;
 		a = b;
 		b = tmp;
 	}
 
-	static void quicksortX(ref Interval[] ivs, int low, int high, size_t d) {
-		if (high - low <= 64) {
-			insertion_sort(ivs);
-			return;
-		}
-		if ((high - low) <= 0) {
-			return;
-		}
-		auto v = digit(ivs[high].start, d);
-		auto i = low - 1;
-		auto j = high;
-		auto p = low - 1;
-		auto q = high;
-
-		while (i < j) {
-			while (digit(ivs[++i].start, d) < v) {
-				if (i == high)
-					break;
-			}
-			while (v < digit(ivs[--j].start, d)) {
-				if (j == low)
-					break;
-			}
-			if (i > j)
-				break;
-			exchange(ivs[i], ivs[j]);
-			if (digit(ivs[i].start, d) == v) {
-				exchange(ivs[++p], ivs[i]);
-			}
-			if (v == digit(ivs[j].start, d)) {
-				exchange(ivs[j], ivs[--q]);
-			}
-		}
-		if (p == q) {
-			// might be missing an exit point here
-			quicksortX(ivs, low, high, d + 1);
-			return;
-		}
-		if (digit(ivs[i].start, d) < v)
-			i++;
-		for (auto k = low; k <= p; k++) {
-			exchange(ivs[k], ivs[j--]);
-		}
-		for (auto k = high; k >= q; k--)
-			exchange(ivs[k], ivs[i++]);
-		quicksortX(ivs, low, j, d);
-		if ((i == high) && (digit(ivs[i].start, d) == v))
-			i++;
-		// might be missing exit here
-		quicksortX(ivs, j + 1, i - 1, d + 1);
-		quicksortX(ivs, i, high, d);
+	static bool less(ref Interval a, ref Interval b) {
+		return a.start < b.start;
 	}
 
-	static void rs_sort(ref Interval[] ivs) {
-		auto count = 0;
-		immutable auto R = 8; // sort 16 bits at a time, so assume we are more than 16 bit keys
-		immutable auto K = 1 << R; //pow(2, R);
-		immutable auto WORDSIZE = SType.sizeof * 8;
+	static void compexch(ref Interval a, ref Interval b) {
+		if (less(b, a)) {
+			exch(a, b);
+		}
+	}
 
-		size_t[K] buckets; //= new size_t[K];
-		size_t[K] positions; // = new size_t[K];
-		while (count < (SType.sizeof * 8) / R) {
-			// zero out buckets
-			for (auto i = 0; i < K; i++) {
-				buckets[i] = 0;
-				positions[i] = 0;
-			}
+	static auto partition(ref Interval[] a, size_t left, size_t right) {
+		auto i = left - 1;
+		auto j = right;
+		auto v = a[right];
 
-			// Find how many items's keys are in each bucket
-			foreach (iv; ivs) {
-				buckets[((iv.start >> (WORDSIZE - ((count) + 1) * R)) & (K - 1))] += 1;
+		while (true) {
+			while (less(a[++i], v)) {
 			}
-
-			// Find the number of elements less than or equal to i at each position
-			for (auto i = 1; i < K; i++) {
-				buckets[i] += buckets[i - 1];
-			}
-			// Copy buckets into positions so that buckets can be modified
-			positions[0 .. $] = buckets[0 .. $];
-			auto i = 0;
-			while (i < ivs.length) {
-				// Looking to place item
-				auto key = ((ivs[i].start >> (WORDSIZE - ((count) + 1) * R)) & (K - 1));
-				bool placed = (key == 0 || (positions[key - 1] <= i && i < positions[key]));
-				if (placed) {
-					i += 1;
-				} else {
-					auto tmp = ivs[i];
-					ivs[i] = ivs[buckets[key] - 1];
-					ivs[buckets[key] - 1] = tmp;
-					buckets[key] -= 1;
+			while (less(v, a[--j])) {
+				if (j == left) {
+					break;
 				}
 			}
-			count += 1;
+			if (i >= j) {
+				break;
+			}
+			exch(a[i], a[j]);
+		}
+		exch(a[i], a[right]);
+		return i;
+	}
+
+	// left is leftmost index
+	// right is rightmost index
+	static void quicksort(ref Interval[] a, size_t left, size_t right) {
+		immutable size_t min = 10;
+		// Base case
+		if (right - left < min) {
+			// Do insertion sort instead
+			insertion_sort(a, cast(int) left, cast(int) right);
+			return;
 		}
 
+		exch(a[(left + right) / 2], a[right - 1]);
+		compexch(a[left], a[right - 1]);
+		compexch(a[left], a[right]);
+		compexch(a[right - 1], a[right]);
+		auto i = partition(a, left + 1, right - 1);
+		quicksort(a, left, i - 1);
+		quicksort(a, i + 1, right);
 	}
 
 	struct Interval {
@@ -170,10 +111,9 @@ class IITree(SType, DType) {
 	}
 
 	void index() {
-		// alias lessThan = (x, y) => x.start < y.start;
-		// this.ivs.sort!(Interval.lessThan);
-		// this.rs_sort(ivs);
-		this.quicksortX(ivs, 0, cast(int) ivs.length - 1, 0);
+		alias lessThan = (x, y) => x.start < y.start;
+		this.ivs.sort!(Interval.lessThan);
+		// this.quicksort(ivs, 0, ivs.length - 1);
 		auto last = 0; // last is the max value at node last_i
 		auto last_i = 1; // last_i points to the rightmost node in the tree
 		for (auto i = 0; i < this.ivs.length; i += 2) {
